@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Search, TrendingUp, ExternalLink } from 'lucide-react';
 
 export default function ResearchTool() {
@@ -7,43 +7,37 @@ export default function ResearchTool() {
   const [results, setResults] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const fetchNiches = () => {
+  const fetchNiches = async () => {
     if (!query) return;
     setLoading(true);
-
-    // Create a unique callback name for JSONP
-    const callbackName = 'amazon_cb_' + Math.floor(Math.random() * 1000000);
-
-    // This function will be called by Amazon's script
-    (window as any)[callbackName] = (data: any) => {
-      // Amazon JSONP returns [query, [suggestions], ...]
-      setResults(data[1] || []);
-      setLoading(false);
-      // Clean up the script and global function
-      document.getElementById(callbackName)?.remove();
-      delete (window as any)[callbackName];
-    };
-
-    const script = document.createElement('script');
-    script.id = callbackName;
-    // We use the 'completion' endpoint with a callback parameter
-    script.src = `https://completion.amazon.com/search/complete?search-alias=aps&client=amazon-search-ui&mkt=1&q=${encodeURIComponent(query)}&callback=${callbackName}`;
     
-    script.onerror = () => {
-      alert("Browser blocked the request. Try turning off Ad-Blockers.");
-      setLoading(false);
-    };
+    try {
+      // We use the AllOrigins proxy to bypass CORS restrictions
+      const amazonUrl = `https://completion.amazon.com/search/complete?search-alias=aps&client=amazon-search-ui&mkt=1&q=${encodeURIComponent(query)}`;
+      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(amazonUrl)}`;
 
-    document.body.appendChild(script);
+      const response = await fetch(proxyUrl);
+      const data = await response.json();
+      
+      // AllOrigins wraps the response in a 'contents' string
+      const contents = JSON.parse(data.contents);
+      
+      // Amazon returns [query, [suggestions], ...]
+      setResults(contents[1] || []);
+    } catch (error) {
+      console.error("Fetch error:", error);
+      alert("Proxy error. Try again in a moment.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
-      <div className="p-6 bg-gradient-to-br from-blue-600 to-indigo-700 text-white">
+      <div className="p-6 bg-slate-900 text-white">
         <h2 className="text-2xl font-bold flex items-center gap-2">
-          <TrendingUp size={24} /> Niche Explorer Pro
+          <TrendingUp className="text-blue-400" size={24} /> Niche Explorer Pro
         </h2>
-        <p className="opacity-80 text-sm mt-1">Real-time Amazon Search Suggestions</p>
       </div>
 
       <div className="p-6">
@@ -53,39 +47,34 @@ export default function ResearchTool() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && fetchNiches()}
-            placeholder="Type a niche (e.g. 'Sudoku for')"
-            className="flex-1 p-4 border-2 border-slate-100 rounded-xl outline-none focus:border-blue-500 transition-all text-lg"
+            placeholder="Search e.g. 'Word search for...'"
+            className="flex-1 p-4 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
           />
           <button 
             onClick={fetchNiches} 
             disabled={loading}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-xl font-bold shadow-lg shadow-blue-200 transition-all active:scale-95 disabled:opacity-50"
+            className="bg-blue-600 text-white px-6 py-4 rounded-xl font-bold disabled:opacity-50 transition-all active:scale-95"
           >
             {loading ? '...' : 'SEARCH'}
           </button>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-2">
           {results.length > 0 ? (
             results.map((item, idx) => (
-              <div key={idx} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl hover:bg-white hover:shadow-md border border-transparent hover:border-slate-200 transition-all group">
-                <span className="text-slate-700 font-semibold">{item}</span>
+              <div key={idx} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100 hover:border-blue-300 transition-all">
+                <span className="text-slate-700 font-medium">{item}</span>
                 <a 
                   href={`https://www.amazon.com/s?k=${encodeURIComponent(item)}&i=stripbooks`} 
                   target="_blank" 
-                  className="flex items-center gap-2 text-xs font-black text-blue-600 px-4 py-2 bg-white rounded-lg border border-slate-200 group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-600 transition-all"
+                  className="text-xs font-bold text-blue-600 bg-white border border-slate-200 px-3 py-2 rounded-lg hover:bg-blue-600 hover:text-white transition-all"
                 >
-                  CHECK NICHE <ExternalLink size={14} />
+                  AMAZON ↗
                 </a>
               </div>
             ))
           ) : (
-            !loading && (
-              <div className="text-center py-20 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
-                <Search className="mx-auto text-slate-300 mb-4" size={48} />
-                <p className="text-slate-400 font-medium italic">Enter a keyword to start your research</p>
-              </div>
-            )
+            !loading && <p className="text-center py-10 text-slate-400 italic">No niches found. Type a keyword above.</p>
           )}
         </div>
       </div>

@@ -1,8 +1,6 @@
 "use client";
 import { useState } from 'react';
 import { Search, TrendingUp } from 'lucide-react';
-// Import the action we just created
-import { getAmazonSuggestions } from '@/app/actions';
 
 export default function ResearchTool() {
   const [query, setQuery] = useState('');
@@ -13,11 +11,17 @@ export default function ResearchTool() {
     if (!query) return;
     setLoading(true);
     
-    // Call the server-side function instead of a direct fetch
-    const suggestions = await getAmazonSuggestions(query);
-    setResults(suggestions);
-    
-    setLoading(false);
+    try {
+      // Call your internal API route
+      const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+      const data = await res.json();
+      setResults(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Search error:", error);
+      setResults([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -31,35 +35,34 @@ export default function ResearchTool() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && fetchNiches()}
-          placeholder="e.g. 'Coloring book for...'"
-          className="flex-1 p-3 border rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="e.g. 'Log book for...'"
+          className="flex-1 p-3 border rounded-xl outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
         />
         <button 
           onClick={fetchNiches} 
           disabled={loading}
-          className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold disabled:opacity-50"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold transition-all disabled:opacity-50 shadow-md"
         >
-          {loading ? 'Searching...' : 'Analyze'}
+          {loading ? '...' : 'Search'}
         </button>
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {results.length > 0 ? (
           results.map((item, idx) => (
-            <div key={idx} className="p-4 border rounded-xl flex justify-between items-center bg-gray-50 hover:bg-blue-50 transition-colors">
+            <div key={idx} className="p-4 border rounded-xl flex justify-between items-center bg-gray-50 hover:bg-white hover:shadow-md transition-all group">
               <span className="font-medium text-slate-700">{item}</span>
               <a 
                 href={`https://www.amazon.com/s?k=${encodeURIComponent(item)}&i=stripbooks`} 
                 target="_blank" 
-                rel="noreferrer"
-                className="text-blue-600 text-sm font-bold bg-blue-100 px-3 py-1 rounded-full hover:bg-blue-600 hover:text-white transition-all"
+                className="text-blue-600 text-xs font-bold border border-blue-200 px-3 py-1 rounded-full group-hover:bg-blue-600 group-hover:text-white transition-all"
               >
-                AMAZON ↗
+                VIEW ON AMAZON
               </a>
             </div>
           ))
         ) : (
-          !loading && <p className="text-slate-400 text-center col-span-2 py-10">No results found. Try a different keyword.</p>
+          !loading && <div className="col-span-2 text-center py-10 border-2 border-dashed border-gray-100 rounded-xl text-slate-400 italic">No niches found yet. Try searching for "Journal for" or "Coloring".</div>
         )}
       </div>
     </div>

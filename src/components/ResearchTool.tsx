@@ -10,14 +10,21 @@ export default function ResearchTool() {
   const fetchNiches = async () => {
     if (!query) return;
     setLoading(true);
+    setResults([]); // Clear previous
     
     try {
-      // Call your internal API route
       const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+      if (!res.ok) throw new Error("Server Error");
+      
       const data = await res.json();
-      setResults(Array.isArray(data) ? data : []);
+      
+      if (data.length === 0) {
+        console.log("Search returned empty array");
+      }
+      
+      setResults(data);
     } catch (error) {
-      console.error("Search error:", error);
+      alert("Search failed. Check Termux/Vercel logs.");
       setResults([]);
     } finally {
       setLoading(false);

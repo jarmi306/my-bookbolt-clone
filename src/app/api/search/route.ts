@@ -4,7 +4,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const query = searchParams.get('q');
   
-  // Using your ScraperAPI key to bypass blocks
+  // Your ScraperAPI Key
   const SCRAPER_API_KEY = "cc5da39af369b6feb2a070eb16dbc724";
 
   if (!query) return NextResponse.json([]);
@@ -12,21 +12,28 @@ export async function GET(request: Request) {
   try {
     const amazonUrl = `https://completion.amazon.com/search/complete?search-alias=aps&client=amazon-search-ui&mkt=1&q=${encodeURIComponent(query)}`;
     
-    // ScraperAPI acts as a proxy to avoid 403 Forbidden errors
-    const scraperUrl = `http://api.scraperapi.com/?api_key=${SCRAPER_API_KEY}&url=${encodeURIComponent(amazonUrl)}`;
+    // We add &render=true to make ScraperAPI use a real headless browser. 
+    // This is much harder for Amazon to block.
+    const scraperUrl = `https://api.scraperapi.com/?api_key=${SCRAPER_API_KEY}&url=${encodeURIComponent(amazonUrl)}&render=true`;
 
     const response = await fetch(scraperUrl, {
-      next: { revalidate: 3600 } // Cache results for 1 hour to save API credits
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+      cache: 'no-store' // Ensure we get fresh results for debugging
     });
     
-    if (!response.ok) throw new Error("ScraperAPI limit or error");
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("ScraperAPI Error Details:", errorText);
+      throw new Error(`Proxy Status: ${response.status}`);
+    }
 
     const data = await response.json();
-    
-    // Amazon returns data in format: [query, [suggestions], ...]
     return NextResponse.json(data[1] || []);
-  } catch (error) {
-    console.error("Search Error:", error);
-    return NextResponse.json({ error: "Search failed" }, { status: 500 });
+  } catch (error: any) {
+    console.error("Fetch Error:", error.message);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

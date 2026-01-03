@@ -12,25 +12,19 @@ export default function ResearchTool() {
     if (!query) return;
     setLoading(true);
     setError(null);
-    setResults([]);
     
     try {
-      // We now call your INTERNAL API route which uses ScraperAPI
       const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
-      
-      if (!res.ok) throw new Error(`Server Error: ${res.status}`);
-      
       const data = await res.json();
       
-      // Amazon response via ScraperAPI is [query, [suggestions], ...]
-      if (Array.isArray(data)) {
+      if (res.ok && Array.isArray(data)) {
         setResults(data);
       } else {
-        setError("Could not parse results. Try a different keyword.");
+        // Show the specific error from the backend
+        setError(data.error || "Unknown Error");
       }
-    } catch (err: any) {
-      console.error("Fetch error:", err);
-      setError("The system is busy or Amazon blocked the request. Try again in a few seconds.");
+    } catch (err) {
+      setError("Network error: Could not connect to backend.");
     } finally {
       setLoading(false);
     }
